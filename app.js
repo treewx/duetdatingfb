@@ -57,41 +57,54 @@ app.get('/webhook', (req, res) => {
   }
 });
 
-// Webhook message endpoint (POST) - with raw body parsing for signature verification
-app.post('/webhook', express.raw({ verify: verifyRequestSignature, type: 'application/json' }), async (req, res) => {
+// Simple webhook for testing - no signature verification
+app.post('/webhook', async (req, res) => {
   try {
-    console.log('Received webhook request');
-    const body = JSON.parse(req.body.toString());
+    console.log('Received webhook request, body type:', typeof req.body);
+    console.log('Raw body:', req.body);
+    
+    // Handle both raw buffer and parsed JSON
+    let body;
+    if (Buffer.isBuffer(req.body)) {
+      body = JSON.parse(req.body.toString());
+    } else {
+      body = req.body;
+    }
+    
+    console.log('Parsed body:', body);
 
     if (body.object === 'page') {
-      body.entry.forEach(entry => {
-        if (entry.messaging && entry.messaging.length > 0) {
-          entry.messaging.forEach(webhookEvent => {
-            const senderId = webhookEvent.sender.id;
-            console.log(`Processing message from sender: ${senderId}`);
+      console.log('Processing page object');
+      if (body.entry && body.entry.length > 0) {
+        body.entry.forEach(entry => {
+          console.log('Processing entry:', entry.id);
+          if (entry.messaging && entry.messaging.length > 0) {
+            entry.messaging.forEach(webhookEvent => {
+              const senderId = webhookEvent.sender.id;
+              console.log(`Processing message from sender: ${senderId}`);
 
-            if (webhookEvent.message) {
-              console.log('Handling message:', webhookEvent.message);
-              messageHandler.handleMessage(senderId, webhookEvent.message).catch(err => {
-                console.error('Error handling message:', err);
-              });
-            } else if (webhookEvent.postback) {
-              console.log('Handling postback:', webhookEvent.postback);
-              messageHandler.handlePostback(senderId, webhookEvent.postback).catch(err => {
-                console.error('Error handling postback:', err);
-              });
-            }
-          });
-        }
-      });
-
+              if (webhookEvent.message) {
+                console.log('Handling message:', webhookEvent.message);
+                // Don't call messageHandler yet - just log
+                console.log('Would handle message here');
+              } else if (webhookEvent.postback) {
+                console.log('Handling postback:', webhookEvent.postback);
+                // Don't call messageHandler yet - just log
+                console.log('Would handle postback here');
+              }
+            });
+          }
+        });
+      }
       res.status(200).send('EVENT_RECEIVED');
     } else {
+      console.log('Not a page object:', body.object);
       res.sendStatus(404);
     }
   } catch (error) {
     console.error('Error processing webhook:', error);
-    res.sendStatus(500);
+    console.error('Error stack:', error.stack);
+    res.status(500).send(`Error: ${error.message}`);
   }
 });
 

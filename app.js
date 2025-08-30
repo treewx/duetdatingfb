@@ -41,9 +41,6 @@ function verifyRequestSignature(req, res, buf) {
 const db = new Database();
 const messageHandler = new MessageHandler(db, PAGE_ACCESS_TOKEN);
 
-// Webhook message endpoint middleware - must be defined before the route
-app.use('/webhook', express.raw({ verify: verifyRequestSignature, type: 'application/json' }));
-
 // Webhook verification endpoint (GET)
 app.get('/webhook', (req, res) => {
   const mode = req.query['hub.mode'];
@@ -60,7 +57,8 @@ app.get('/webhook', (req, res) => {
   }
 });
 
-app.post('/webhook', async (req, res) => {
+// Webhook message endpoint (POST) - with raw body parsing for signature verification
+app.post('/webhook', express.raw({ verify: verifyRequestSignature, type: 'application/json' }), async (req, res) => {
   try {
     console.log('Received webhook request');
     const body = JSON.parse(req.body.toString());

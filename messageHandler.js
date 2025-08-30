@@ -22,8 +22,11 @@ class MessageHandler {
 
   async handleMessage(senderId, message) {
     try {
+      console.log(`Handling message for user ${senderId}:`, message);
       const user = await this.db.getUser(senderId);
       const userState = await this.db.getUserState(senderId);
+      
+      console.log(`User exists: ${!!user}, User setup completed: ${user?.setup_completed}, User state: ${userState?.current_step}`);
 
       if (!user || !user.setup_completed) {
         await this.handleProfileSetup(senderId, message, userState);

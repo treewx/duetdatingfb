@@ -15,9 +15,6 @@ const APP_SECRET = process.env.APP_SECRET;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const db = new Database();
-const messageHandler = new MessageHandler(db, PAGE_ACCESS_TOKEN);
-
 function verifyRequestSignature(req, res, buf) {
   const signature = req.get('X-Hub-Signature-256');
   
@@ -37,8 +34,13 @@ function verifyRequestSignature(req, res, buf) {
   }
 }
 
+const db = new Database();
+const messageHandler = new MessageHandler(db, PAGE_ACCESS_TOKEN);
+
+// Webhook message endpoint middleware - must be defined before the route
 app.use('/webhook', express.raw({ verify: verifyRequestSignature, type: 'application/json' }));
 
+// Webhook verification endpoint (GET)
 app.get('/webhook', (req, res) => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
@@ -56,17 +58,28 @@ app.get('/webhook', (req, res) => {
 
 app.post('/webhook', async (req, res) => {
   try {
+    console.log('Received webhook request');
     const body = JSON.parse(req.body.toString());
 
     if (body.object === 'page') {
       body.entry.forEach(entry => {
-        const webhookEvent = entry.messaging[0];
-        const senderId = webhookEvent.sender.id;
+        if (entry.messaging && entry.messaging.length > 0) {
+          entry.messaging.forEach(webhookEvent => {
+            const senderId = webhookEvent.sender.id;
+            console.log(`Processing message from sender: ${senderId}`);
 
-        if (webhookEvent.message) {
-          messageHandler.handleMessage(senderId, webhookEvent.message);
-        } else if (webhookEvent.postback) {
-          messageHandler.handlePostback(senderId, webhookEvent.postback);
+            if (webhookEvent.message) {
+              console.log('Handling message:', webhookEvent.message);
+              messageHandler.handleMessage(senderId, webhookEvent.message).catch(err => {
+                console.error('Error handling message:', err);
+              });
+            } else if (webhookEvent.postback) {
+              console.log('Handling postback:', webhookEvent.postback);
+              messageHandler.handlePostback(senderId, webhookEvent.postback).catch(err => {
+                console.error('Error handling postback:', err);
+              });
+            }
+          });
         }
       });
 
@@ -82,6 +95,17 @@ app.post('/webhook', async (req, res) => {
 
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// Debug endpoint to test environment variables
+app.get('/debug', (req, res) => {
+  res.json({
+    hasPageAccessToken: !!PAGE_ACCESS_TOKEN,
+    hasAppSecret: !!APP_SECRET,
+    verifyToken: VERIFY_TOKEN,
+    webhookUrl: process.env.WEBHOOK_URL,
+    port: PORT
+  });
 });
 
 app.get('/', (req, res) => {

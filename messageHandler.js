@@ -23,6 +23,15 @@ class MessageHandler {
   async handleMessage(senderId, message) {
     try {
       console.log(`Handling message for user ${senderId}:`, message);
+      
+      // Check if this is a quick_reply message
+      if (message.quick_reply) {
+        console.log('Processing quick_reply payload:', message.quick_reply.payload);
+        const payload = JSON.parse(message.quick_reply.payload);
+        await this.handlePostback(senderId, { payload: message.quick_reply.payload });
+        return;
+      }
+      
       const user = await this.db.getUser(senderId);
       const userState = await this.db.getUserState(senderId);
       
@@ -43,7 +52,9 @@ class MessageHandler {
 
   async handlePostback(senderId, postback) {
     try {
+      console.log('Processing postback:', postback);
       const payload = JSON.parse(postback.payload);
+      console.log('Parsed payload:', payload);
       
       switch (payload.action) {
         case 'rate_couple':
@@ -53,13 +64,18 @@ class MessageHandler {
           await this.showRandomCouple(senderId);
           break;
         case 'select_gender':
+          console.log('Handling gender selection:', payload.gender);
           await this.handleGenderSelection(senderId, payload.gender);
           break;
         case 'select_preference':
+          console.log('Handling preference selection:', payload.preference);
           await this.handlePreferenceSelection(senderId, payload.preference);
           break;
+        case 'show_matches':
+          await this.showMatches(senderId);
+          break;
         default:
-          console.log('Unknown postback:', payload);
+          console.log('Unknown postback action:', payload.action, payload);
       }
     } catch (error) {
       console.error('Error handling postback:', error);

@@ -85,12 +85,14 @@ app.post('/webhook', async (req, res) => {
 
               if (webhookEvent.message) {
                 console.log('Handling message:', webhookEvent.message);
-                // Don't call messageHandler yet - just log
-                console.log('Would handle message here');
+                messageHandler.handleMessage(senderId, webhookEvent.message).catch(err => {
+                  console.error('Error handling message:', err);
+                });
               } else if (webhookEvent.postback) {
                 console.log('Handling postback:', webhookEvent.postback);
-                // Don't call messageHandler yet - just log
-                console.log('Would handle postback here');
+                messageHandler.handlePostback(senderId, webhookEvent.postback).catch(err => {
+                  console.error('Error handling postback:', err);
+                });
               }
             });
           }
